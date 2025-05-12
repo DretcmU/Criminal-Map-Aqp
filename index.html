@@ -13,11 +13,16 @@
   <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
   <script>
     let bounds;
+    let colors = ["red", "yellow", "blue"];
+
     const map = L.map('map').setView([-16.3989, -71.5350], 13); // Arequipa
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    const drawnItems = new L.FeatureGroup();
+    const drawnItems = new L.FeatureGroup(); // capa de rectángulo
+    const puntosLayer = new L.LayerGroup();  // capa de puntos
+
     map.addLayer(drawnItems);
+    map.addLayer(puntosLayer);
 
     const drawControl = new L.Control.Draw({
       draw: {
@@ -36,8 +41,21 @@
 
     map.on('draw:created', function (e) {
       drawnItems.clearLayers();
+      puntosLayer.clearLayers();
       drawnItems.addLayer(e.layer);
       bounds = e.layer.getBounds();
+    });
+
+    map.on('draw:edited', function (e) {
+      const layers = e.layers.getLayers();
+      if (layers.length > 0) {
+        bounds = layers[0].getBounds();
+      }
+    });
+
+    map.on('draw:deleted', function (e) {
+      bounds = null;
+      puntosLayer.clearLayers();
     });
 
     function buscarCriminalidad() {
@@ -50,14 +68,17 @@
       };
       fetch("http://localhost:8080/consultar", {
         method: "POST",
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       }).then(res => res.json()).then(puntos => {
+        puntosLayer.clearLayers();
         puntos.forEach(p => {
-		console.log("A");
-          L.circleMarker([p.lat, p.lon], {radius: 4, color: "red"}).addTo(map);
+          L.circleMarker([p.lat, p.lon], {
+            radius: 4,
+            color: colors[p.color]
+          }).addTo(puntosLayer);
         });
-      });
+      }).catch(err => alert("Error en la consulta: " + err));
     }
   </script>
 </body>

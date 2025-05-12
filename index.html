@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mapa Criminalidad Arequipa</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+</head>
+<body>
+  <div id="map" style="height: 600px;"></div>
+  <button onclick="buscarCriminalidad()">Buscar en zona</button>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+  <script>
+    let bounds;
+    const map = L.map('map').setView([-16.3989, -71.5350], 13); // Arequipa
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    const drawControl = new L.Control.Draw({
+      draw: {
+        polygon: false,
+        polyline: false,
+        circle: false,
+        marker: false,
+        circlemarker: false,
+        rectangle: true
+      },
+      edit: {
+        featureGroup: drawnItems
+      }
+    });
+    map.addControl(drawControl);
+
+    map.on('draw:created', function (e) {
+      drawnItems.clearLayers();
+      drawnItems.addLayer(e.layer);
+      bounds = e.layer.getBounds();
+    });
+
+    function buscarCriminalidad() {
+      if (!bounds) return alert("Dibuja un área primero");
+      const data = {
+        minLat: bounds.getSouth(),
+        minLon: bounds.getWest(),
+        maxLat: bounds.getNorth(),
+        maxLon: bounds.getEast()
+      };
+      fetch("http://localhost:8080/consultar", {
+        method: "POST",
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      }).then(res => res.json()).then(puntos => {
+        puntos.forEach(p => {
+		console.log("A");
+          L.circleMarker([p.lat, p.lon], {radius: 4, color: "red"}).addTo(map);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

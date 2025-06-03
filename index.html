@@ -1,13 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Mapa Criminalidad Arequipa</title>
+  <title>Mapa Criminalidad Nueva York</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+    }
+    #map {
+      height: 100vh;
+      flex: 1;
+    }
+    #controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.3);
+      font-family: sans-serif;
+    }
+  </style>
 </head>
 <body>
-  <div id="map" style="height: 600px;"></div>
-  <button onclick="buscarCriminalidad()">Buscar en zona</button>
+  <div id="map"></div>
+  <div id="controls">
+    <button onclick="buscarCriminalidad()">Buscar en zona</button>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
@@ -15,7 +38,7 @@
     let bounds;
     let colors = ["red", "yellow", "blue"];
 
-    const map = L.map('map').setView([-16.3989, -71.5350], 13); // Arequipa
+    const map = L.map('map').setView([40.7128, -74.0060], 13); // Nueva York
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     const drawnItems = new L.FeatureGroup(); // capa de rectángulo
@@ -58,6 +81,11 @@
       puntosLayer.clearLayers();
     });
 
+    function getColorFromValue(value, maxValue = 6000) {
+      const hue = (value / maxValue) * 360;  // Hue de 0 a 360
+      return `hsl(${hue}, 100%, 50%)`;       // Saturación y brillo constantes
+    }
+
     function buscarCriminalidad() {
       if (!bounds) return alert("Dibuja un área primero");
       const data = {
@@ -73,9 +101,10 @@
       }).then(res => res.json()).then(puntos => {
         puntosLayer.clearLayers();
         puntos.forEach(p => {
+          const color = getColorFromValue(p.color); // p.color de 0 a 5000
           L.circleMarker([p.lat, p.lon], {
             radius: 4,
-            color: colors[p.color]
+            color: color
           }).addTo(puntosLayer);
         });
       }).catch(err => alert("Error en la consulta: " + err));

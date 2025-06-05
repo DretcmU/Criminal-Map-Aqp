@@ -161,6 +161,17 @@ std::vector<Point> buscarRangoHilbert(BTree& arbol,
         cerr << "Error: las coordenadas deben tener la misma dimensión.\n";
         return std::vector<Point>{};
     }
+    vector<double> hcoord_min(2),  hcoord_max(2);
+    for(int i=0;i<2;i++){
+        hcoord_min[i] = coord_min[i];
+        hcoord_max[i] = coord_max[i];
+    }
+
+    double expand=0.01;
+    for(int i=0;i<2;i++){
+        hcoord_min[i] -= expand;
+        hcoord_max[i] += expand;
+    }
 
     // Normalización: convertir coordenadas reales a enteros entre 0 y 2^bits - 1
     auto normalizar = [bits](const vector<double>& coord, const vector<double>& min_vals, const vector<double>& max_vals) {
@@ -176,8 +187,8 @@ std::vector<Point> buscarRangoHilbert(BTree& arbol,
     vector<double> min_vals = min_norm;
     vector<double> max_vals = max_norm;
 
-    vector<uint32_t> norm_min = normalizar(coord_min, min_vals, max_vals);
-    vector<uint32_t> norm_max = normalizar(coord_max, min_vals, max_vals);
+    vector<uint32_t> norm_min = normalizar(hcoord_min, min_vals, max_vals);
+    vector<uint32_t> norm_max = normalizar(hcoord_max, min_vals, max_vals);
 
     uint64_t hilbert_min = hilbertIndexND(norm_min, bits);
     uint64_t hilbert_max = hilbertIndexND(norm_max, bits);
@@ -202,7 +213,7 @@ std::vector<Point> buscarRangoHilbert(BTree& arbol,
                 bool dentro = true;
                 //for (size_t d = 0; d < p.coords.size(); ++d) {
                 for (size_t d = 0; d < 2; ++d) {
-                    cout<<p.coords[d] << " " <<coord_min[d] << " " << p.coords[d]<< " " <<coord_max[d]<<endl;
+                    //cout<<p.coords[d] << " " <<coord_min[d] << " " << p.coords[d]<< " " <<coord_max[d]<<endl;
                     if (p.coords[d] < coord_min[d] || p.coords[d] > coord_max[d]) {
                         dentro = false;
                         break;
@@ -267,4 +278,20 @@ BTree* initHilbertTree(const string& pathBin = "../preprocessing/BinDatos.bin", 
 
     cout << "Árbol Hilbert-BTree inicializado con " << puntos.size() << " puntos." << endl;
     return tree;
+}
+
+void cargarMinMax(const string& filename, vector<double>& min_norm, vector<double>& max_norm) {
+    ifstream archivo(filename);
+    if (!archivo.is_open()) {
+        cerr << "No se pudo abrir el archivo para leer: " << filename << endl;
+        return;
+    }
+
+    // min_norm.resize(2);
+    // max_norm.resize(2);
+
+    archivo >> min_norm[0] >> min_norm[1];
+    archivo >> max_norm[0] >> max_norm[1];
+
+    archivo.close();
 }

@@ -80,7 +80,7 @@
       puntosLayer.clearLayers();
     });
 
-    function getColorFromValue(value, maxValue = 6000) {
+    function getColorFromValue(value, maxValue = 843) {
       const hue = (value / maxValue) * 360;  // Hue de 0 a 360
       return `hsl(${hue}, 100%, 50%)`;       // Saturación y brillo constantes
     }

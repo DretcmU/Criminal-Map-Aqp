@@ -7,7 +7,9 @@
 using json = nlohmann::json;
 
 int main() {
-    BTree* arbol = initHilbertTree("templates/datastruct/BinDatos.bin",2);
+    BTree* arbol = initHilbertTree("templates/preprocessing/BinDatos.bin",2);
+    vector<double> min_norm(2), max_norm(2);
+    cargarMinMax("templates/preprocessing/minmax.txt", min_norm, max_norm);
 
     std::cout << ">> Servidor iniciando..." << std::endl;
 
@@ -20,7 +22,7 @@ int main() {
         res.status = 204; // No Content
     });
 
-    svr.Post("/consultar", [arbol](const httplib::Request& req, httplib::Response& res) {
+    svr.Post("/consultar", [arbol,min_norm,max_norm](const httplib::Request& req, httplib::Response& res) {
         res.set_header("Access-Control-Allow-Origin", "*");
 
         try {
@@ -45,7 +47,8 @@ int main() {
             // std::uniform_int_distribution<> color_dist(0, 2);
             
             int bits = 16;
-            auto encontrados = buscarRangoHilbert(*arbol, min_coord, max_coord, bits);
+            auto encontrados = buscarRangoHilbert(*arbol, min_coord, 
+                max_coord, bits, min_norm, max_norm);
 
             json respuesta = json::array();
             for (const auto& p : encontrados) {

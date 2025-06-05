@@ -263,12 +263,12 @@ vector<Dato> leerColumnasDeCSVConHilbert(
     }
 
     int xdatoxd=0;
-    vector<double> min_norm = {40.1, -74.1};  // latitud mínima, longitud mínima
-    vector<double> max_norm = {41.1, -73.1};  // latitud máxima, longitud máxima
-    for(int i=0;i<2;i++){
-        if(minVals[i]<min_norm[i]) minVals[i] = min_norm[i];
-        if(maxVals[i]>max_norm[i]) maxVals[i] = max_norm[i];
-    }
+    // vector<double> min_norm = {39.9, -74.9};  // latitud mínima, longitud mínima
+    // vector<double> max_norm = {41.1, -72.9};  // latitud máxima, longitud máxima
+    // for(int i=0;i<2;i++){
+    //     if(minVals[i]<min_norm[i]) minVals[i] = min_norm[i];
+    //     if(maxVals[i]>max_norm[i]) maxVals[i] = max_norm[i];
+    // }
 
     cout<<"Min: " <<minVals[0]<<" "<<minVals[1]<<endl;
     cout<<"Max: " <<maxVals[0]<<" "<<maxVals[1]<<endl;

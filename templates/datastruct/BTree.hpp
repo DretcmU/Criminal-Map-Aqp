@@ -64,6 +64,7 @@ public:
 
 uint64_t hilbertIndexND(const vector<uint32_t>& coords, int bits);
 vector<Point> leerDesdeBinario(const string& nombreArchivo);
-std::vector<Point> buscarRangoHilbert(BTree& arbol, const vector<double>& coord_min, const vector<double>& coord_max, int bits);
+std::vector<Point> buscarRangoHilbert(BTree& arbol, const vector<double>& coord_min, 
+    const vector<double>& coord_max, int bits, const vector<double>&, const vector<double>&);
 BTree* initHilbertTree(const string& pathBin, int orden);
 #endif // BTREE_HPP

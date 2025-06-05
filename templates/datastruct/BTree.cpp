@@ -154,7 +154,9 @@ uint64_t hilbertIndexND(const vector<uint32_t>& coords, int bits) {
 }
 
 
-std::vector<Point> buscarRangoHilbert(BTree& arbol, const vector<double>& coord_min, const vector<double>& coord_max, int bits) {
+std::vector<Point> buscarRangoHilbert(BTree& arbol, 
+    const vector<double>& coord_min, const vector<double>& coord_max,
+     int bits, const vector<double>& min_norm, const vector<double>& max_norm) {
     if (coord_min.size() != coord_max.size()) {
         cerr << "Error: las coordenadas deben tener la misma dimensión.\n";
         return std::vector<Point>{};
@@ -171,8 +173,8 @@ std::vector<Point> buscarRangoHilbert(BTree& arbol, const vector<double>& coord_
         return normalizada;
     };
 
-    vector<double> min_vals = coord_min;
-    vector<double> max_vals = coord_max;
+    vector<double> min_vals = min_norm;
+    vector<double> max_vals = max_norm;
 
     vector<uint32_t> norm_min = normalizar(coord_min, min_vals, max_vals);
     vector<uint32_t> norm_max = normalizar(coord_max, min_vals, max_vals);
@@ -200,7 +202,7 @@ std::vector<Point> buscarRangoHilbert(BTree& arbol, const vector<double>& coord_
                 bool dentro = true;
                 //for (size_t d = 0; d < p.coords.size(); ++d) {
                 for (size_t d = 0; d < 2; ++d) {
-                    //cout<<p.coords[d] << " " <<coord_min[d] << " " << p.coords[d]<< " " <<coord_max[d]<<endl;
+                    cout<<p.coords[d] << " " <<coord_min[d] << " " << p.coords[d]<< " " <<coord_max[d]<<endl;
                     if (p.coords[d] < coord_min[d] || p.coords[d] > coord_max[d]) {
                         dentro = false;
                         break;
@@ -257,6 +259,7 @@ vector<Point> leerDesdeBinario(const string& nombreArchivo) {
 BTree* initHilbertTree(const string& pathBin = "../preprocessing/BinDatos.bin", int orden = 2) {
     BTree* tree = new BTree(orden);
     vector<Point> puntos = leerDesdeBinario(pathBin);
+
 
     for (const auto& punto : puntos) {
         tree->insert(punto);

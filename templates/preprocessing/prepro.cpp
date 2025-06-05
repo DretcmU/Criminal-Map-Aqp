@@ -57,6 +57,122 @@ uint64_t hilbertIndexND(const vector<uint32_t>& coords, int bits) {
 // ===================
 // LECTURA Y HILBERT
 // ===================
+// vector<Dato> leerColumnasDeCSVConHilbert(
+//     const string& filename,
+//     const vector<string>& columnasDeseadas,
+//     int bitsHilbert = 16
+// ) {
+//     vector<Dato> datos;
+//     ifstream archivo(filename);
+//     string linea;
+
+//     if (!archivo.is_open()) {
+//         cerr << "No se pudo abrir el archivo: " << filename << endl;
+//         return datos;
+//     }
+
+//     // Leer encabezado
+//     getline(archivo, linea);
+//     istringstream ssEncabezado(linea);
+//     string columna;
+//     unordered_map<string, int> indiceColumna;
+
+//     int index = 0;
+//     while (getline(ssEncabezado, columna, ',')) {
+//         indiceColumna[columna] = index++;
+//     }
+
+//     vector<int> indicesSeleccionados;
+//     for (const auto& nombre : columnasDeseadas) {
+//         if (indiceColumna.find(nombre) != indiceColumna.end()) {
+//             indicesSeleccionados.push_back(indiceColumna[nombre]);
+//         } else {
+//             cerr << "Columna no encontrada: " << nombre << endl;
+//             return datos;
+//         }
+//     }
+
+//     vector<vector<double>> columnasRaw(columnasDeseadas.size());
+//     vector<vector<string>> filasCSV;
+
+//     while (getline(archivo, linea)) {
+//         istringstream ss(linea);
+//         string valor;
+//         vector<string> filaCompleta;
+
+//         while (getline(ss, valor, ',')) {
+//             filaCompleta.push_back(valor);
+//         }
+
+//         if (filaCompleta.size() > *max_element(indicesSeleccionados.begin(), indicesSeleccionados.end())) {
+//             for (size_t i = 0; i < indicesSeleccionados.size(); ++i) {
+//                 int idx = indicesSeleccionados[i];
+//                 columnasRaw[i].push_back(stod(filaCompleta[idx]));
+//             }
+//             filasCSV.push_back(filaCompleta);
+//         }
+//     }
+
+//     vector<double> minVals, maxVals;
+//     for (const auto& col : columnasRaw) {
+//         double minV = *min_element(col.begin(), col.end());
+//         double maxV = *max_element(col.begin(), col.end());
+//         minVals.push_back(minV);
+//         maxVals.push_back(maxV);
+//     }
+
+//     int filanumN=0;
+//     for (const auto& fila : filasCSV) {
+//         if (stod(fila[1])==0.0 || stod(fila[2])==0.0) continue;
+//         Dato dato;
+//         vector<uint32_t> coords;
+//         vector<uint32_t> pos;
+//         int con = 0;
+
+//         for (size_t i = 0; i < indicesSeleccionados.size(); ++i) {
+//             int idx = indicesSeleccionados[i];
+//             double val = stod(fila[idx]);
+
+//             uint32_t norm = static_cast<uint32_t>(
+//                 ((val - minVals[i]) / (maxVals[i] - minVals[i])) * ((1 << bitsHilbert) - 1)
+//             );
+//             //coords.push_back(norm);
+//             if(con<2){
+//                 cout<<minVals[0]<<" "<<maxVals[0]<<" "<<minVals[1]<<" "<<maxVals[1]<<endl;
+//                 dato.columnas.push_back(val);
+//                 // if (stod(fila[1])==0.0 || stod(fila[2])==0.0){
+//                 //     cout<<"A"<<filanumN<<endl;
+//                 //     cin>>con;
+//                 // }
+//                 pos.push_back(norm);
+//                 con++;
+//             }
+//             else{
+//                 coords.push_back(norm);
+//             }
+//             filanumN++;
+//         }
+//         dato.key = hilbertIndexND(pos, bitsHilbert);
+//         dato.indice_h = hilbertIndexND(coords, bitsHilbert);
+//         datos.push_back(dato);
+//     }
+
+//     return datos;
+// }
+
+void guardarMinMax(const string& filename, const vector<double>& minVals, const vector<double>& maxVals) {
+    ofstream archivo(filename);
+    if (!archivo.is_open()) {
+        cerr << "No se pudo abrir el archivo para escribir: " << filename << endl;
+        return;
+    }
+
+    archivo << minVals[0] << " " << minVals[1] << endl;
+    archivo << maxVals[0] << " " << maxVals[1] << endl;
+
+    archivo.close();
+}
+
 vector<Dato> leerColumnasDeCSVConHilbert(
     const string& filename,
     const vector<string>& columnasDeseadas,
@@ -76,12 +192,13 @@ vector<Dato> leerColumnasDeCSVConHilbert(
     istringstream ssEncabezado(linea);
     string columna;
     unordered_map<string, int> indiceColumna;
-
     int index = 0;
+
     while (getline(ssEncabezado, columna, ',')) {
         indiceColumna[columna] = index++;
     }
 
+    // Verificar que todas las columnas deseadas existen
     vector<int> indicesSeleccionados;
     for (const auto& nombre : columnasDeseadas) {
         if (indiceColumna.find(nombre) != indiceColumna.end()) {
@@ -92,9 +209,8 @@ vector<Dato> leerColumnasDeCSVConHilbert(
         }
     }
 
-    vector<vector<double>> columnasRaw(columnasDeseadas.size());
-    vector<vector<string>> filasCSV;
-
+    // Leer todas las filas y filtrar válidas (columna 1 y 2 no deben ser 0.0 o vacías)
+    vector<vector<string>> filasValidas;
     while (getline(archivo, linea)) {
         istringstream ss(linea);
         string valor;
@@ -104,15 +220,40 @@ vector<Dato> leerColumnasDeCSVConHilbert(
             filaCompleta.push_back(valor);
         }
 
-        if (filaCompleta.size() >= *max_element(indicesSeleccionados.begin(), indicesSeleccionados.end())) {
-            for (size_t i = 0; i < indicesSeleccionados.size(); ++i) {
-                int idx = indicesSeleccionados[i];
-                columnasRaw[i].push_back(stod(filaCompleta[idx]));
+        // Validación: verificar que haya suficientes columnas
+        if (filaCompleta.size() <= 2) continue;
+
+        try {
+            if (!filaCompleta[1].empty() && !filaCompleta[2].empty()) {
+                double val1 = stod(filaCompleta[1]);
+                double val2 = stod(filaCompleta[2]);
+
+                if (val1 != 0.0 && val2 != 0.0) {
+                    filasValidas.push_back(filaCompleta);
+                }
             }
-            filasCSV.push_back(filaCompleta);
+        } catch (...) {
+            // Ignorar si no se puede convertir alguna columna
+            continue;
         }
     }
 
+    // Extraer valores numéricos para columnas deseadas
+    vector<vector<double>> columnasRaw(columnasDeseadas.size());
+
+    for (const auto& fila : filasValidas) {
+        for (size_t i = 0; i < indicesSeleccionados.size(); ++i) {
+            int idx = indicesSeleccionados[i];
+            try {
+                double val = stod(fila[idx]);
+                columnasRaw[i].push_back(val);
+            } catch (...) {
+                columnasRaw[i].push_back(0.0);  // Si hay error, usa 0.0 (o podrías ignorar esa fila si prefieres)
+            }
+        }
+    }
+
+    // Calcular min y max para normalización
     vector<double> minVals, maxVals;
     for (const auto& col : columnasRaw) {
         double minV = *min_element(col.begin(), col.end());
@@ -121,29 +262,48 @@ vector<Dato> leerColumnasDeCSVConHilbert(
         maxVals.push_back(maxV);
     }
 
-    for (const auto& fila : filasCSV) {
+    int xdatoxd=0;
+    vector<double> min_norm = {40.1, -74.1};  // latitud mínima, longitud mínima
+    vector<double> max_norm = {41.1, -73.1};  // latitud máxima, longitud máxima
+    for(int i=0;i<2;i++){
+        if(minVals[i]<min_norm[i]) minVals[i] = min_norm[i];
+        if(maxVals[i]>max_norm[i]) maxVals[i] = max_norm[i];
+    }
+
+    cout<<"Min: " <<minVals[0]<<" "<<minVals[1]<<endl;
+    cout<<"Max: " <<maxVals[0]<<" "<<maxVals[1]<<endl;
+    cout<<"mira: ";cin>>xdatoxd;
+
+    guardarMinMax("minmax.txt", minVals, maxVals);
+
+    // Construir objetos Dato
+    for (size_t i = 0; i < filasValidas.size(); ++i) {
+        const auto& fila = filasValidas[i];
+        if(minVals[0]>stod(fila[1]) || stod(fila[1])>maxVals[0] || 
+        minVals[1]>stod(fila[2]) || stod(fila[2])>maxVals[1]){
+            continue;
+        }
         Dato dato;
         vector<uint32_t> coords;
         vector<uint32_t> pos;
-        int con = 0;
 
-        for (size_t i = 0; i < indicesSeleccionados.size(); ++i) {
-            int idx = indicesSeleccionados[i];
+        for (size_t j = 0; j < indicesSeleccionados.size(); ++j) {
+            int idx = indicesSeleccionados[j];
             double val = stod(fila[idx]);
-            dato.columnas.push_back(val);
 
+            // Normalización
             uint32_t norm = static_cast<uint32_t>(
-                ((val - minVals[i]) / (maxVals[i] - minVals[i])) * ((1 << bitsHilbert) - 1)
+                ((val - minVals[j]) / (maxVals[j] - minVals[j])) * ((1 << bitsHilbert) - 1)
             );
-            //coords.push_back(norm);
-            if(con<2){
+
+            if (j < 2) {
+                dato.columnas.push_back(val);
                 pos.push_back(norm);
-                con++;
-            }
-            else{
+            } else {
                 coords.push_back(norm);
             }
         }
+
         dato.key = hilbertIndexND(pos, bitsHilbert);
         dato.indice_h = hilbertIndexND(coords, bitsHilbert);
         datos.push_back(dato);
@@ -221,12 +381,15 @@ void guardarEnBinario(const vector<Dato>& datos, const vector<string>& columnas,
         return;
     }
 
-    size_t n_columnas = columnas.size();
+    size_t n_columnas = 2;//columnas.size();
     size_t n_datos = datos.size();
     outBin.write(reinterpret_cast<const char*>(&n_datos), sizeof(size_t));
     outBin.write(reinterpret_cast<const char*>(&n_columnas), sizeof(size_t));
 
     for (const Dato& d : datos) {
+        // if(d.columnas[0]==0.0){
+        //     cout<<1000000<<endl;
+        // }
         outBin.write(reinterpret_cast<const char*>(d.columnas.data()), sizeof(double) * n_columnas);
         outBin.write(reinterpret_cast<const char*>(&d.key), sizeof(uint64_t));
         outBin.write(reinterpret_cast<const char*>(&d.cluster_id), sizeof(int));
@@ -250,6 +413,9 @@ vector<Dato> leerDesdeBinario(const string& nombreArchivo) {
 
     for (size_t i = 0; i < n_datos; ++i) {
         Dato d;
+        if(d.columnas[0]==0.0){
+            cout<<1000000<<endl;
+        }
         d.columnas.resize(n_columnas);
         inBin.read(reinterpret_cast<char*>(d.columnas.data()), sizeof(double) * n_columnas);
         inBin.read(reinterpret_cast<char*>(&d.key), sizeof(uint64_t));
@@ -274,6 +440,16 @@ int main() {
     int agrupamiento_por_bits = 2; // numero de digitios que restaremos al (indice hilbert x cantidad de columnas)
 
     vector<Dato> datos = leerColumnasDeCSVConHilbert(archivoCSV, columnas, bitsHilbert);
+    int a;
+    for(auto&d : datos)    {
+    if(d.columnas[0]==0.0){
+            cout<<1000000<<endl;
+            cin>>a;
+        }
+        // for(auto&val : d.columnas)
+        // cout<<val<<" ";
+        // cout<<d.indice_h<<endl;
+    }
 
     // Agrupar punteros por bits altos
     map<uint64_t, vector<Dato*>> gruposHilbert;
@@ -285,8 +461,10 @@ int main() {
 
     // Aplicar DBSCAN a cada grupo
     int nextClusterId = 0;
-    for (auto& [grupo_id, grupo] : gruposHilbert) {
-        dbscan(grupo, 1.0, 5, nextClusterId);
+    for (auto it = gruposHilbert.begin(); it != gruposHilbert.end(); ++it) {
+        uint64_t grupo_id = it->first;
+        vector<Dato*>& grupo = it->second;
+        dbscan(grupo, 1.2, 5, nextClusterId);
     }
 
     // Mostrar resumen
@@ -294,24 +472,24 @@ int main() {
     for (const auto& d : datos) {
         conteoClusters[d.cluster_id]++;
     }
+
     long con=0;
-    for (const auto& [id, count] : conteoClusters) {
+    for (auto it = conteoClusters.begin(); it != conteoClusters.end(); ++it) {
+        int id = it->first;
+        int count = it->second;
         cout << "Cluster " << id << ": " << count << " puntos\n";
         con++;
     }
+    //cout<<conteoClusters.size()<<endl;
     cout<<con<<endl;
-
+    ofstream out("numGrups.txt");
+    out << con<< endl;
+    out.close();
     // for (size_t i = 0; i < 150 && i < datos.size(); ++i) {
     //     cout << "Fila " << i << " cluster = " << datos[i].cluster_id << endl;
     // }
 
     guardarEnBinario(datos,columnas, "BinDatos.bin");
-    vector<Dato> datosLeidos = leerDesdeBinario("BinDatos.bin");
-    for (size_t i = 0; i < 10 && i < datosLeidos.size(); ++i) {
-        cout << "Dato " << i << ": cluster_id = " << datosLeidos[i].cluster_id
-             << ", hilbert = " << datosLeidos[i].indice_h
-             <<", Pos = " << datosLeidos[i].key << endl;
-    }
-
+    cout<<"size: "<<datos.size()<<endl;
     return 0;
 }

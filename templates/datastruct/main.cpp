@@ -22,7 +22,7 @@ int main() {
     // arbol->traverse();
 
     vector<double> min_coord = {40.150, -74.2591}; // lat, lon
-    vector<double> max_coord = {40.806, -74.2704}; // lat, lon
+    vector<double> max_coord = {41.0, -73.0}; // lat, lon
     
     int bits = 16;
 

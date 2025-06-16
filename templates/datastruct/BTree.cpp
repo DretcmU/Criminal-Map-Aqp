@@ -200,36 +200,73 @@ std::vector<Point> buscarRangoHilbert(BTree& arbol,
     // Recorrer el árbol y verificar
     vector<Point> encontrados;
 
+    // function<void(BTreeNode*)> buscarRec = [&](BTreeNode* nodo) {
+    //     if (!nodo) return;
+
+    //     int i = 0;
+    //     for (; i < nodo->keys.size(); ++i) {
+    //         if (!nodo->leaf)
+    //             buscarRec(nodo->children[i]);
+
+    //         if (nodo->keys[i].key >= hilbert_min && nodo->keys[i].key <= hilbert_max) {
+    //             const auto& p = nodo->keys[i];
+    //             bool dentro = true;
+    //             //for (size_t d = 0; d < p.coords.size(); ++d) {
+    //             for (size_t d = 0; d < 2; ++d) {
+    //                 //cout<<p.coords[d] << " " <<coord_min[d] << " " << p.coords[d]<< " " <<coord_max[d]<<endl;
+    //                 if (p.coords[d] < coord_min[d] || p.coords[d] > coord_max[d]) {
+    //                     dentro = false;
+    //                     break;
+    //                 }
+    //             }
+    //             if (dentro)
+    //                 encontrados.push_back(p);
+    //         }
+    //     }
+
+    //     if (!nodo->leaf)
+    //         buscarRec(nodo->children[i]);
+    // };
+
+    // buscarRec(arbol.root);
     function<void(BTreeNode*)> buscarRec = [&](BTreeNode* nodo) {
         if (!nodo) return;
-
+    
         int i = 0;
-        for (; i < nodo->keys.size(); ++i) {
+    
+        // Buscar la primera clave >= hilbert_min usando búsqueda secuencial (puedes usar binary search si hay muchos keys)
+        while (i < nodo->keys.size() && nodo->keys[i].key < hilbert_min) {
             if (!nodo->leaf)
                 buscarRec(nodo->children[i]);
-
-            if (nodo->keys[i].key >= hilbert_min && nodo->keys[i].key <= hilbert_max) {
-                const auto& p = nodo->keys[i];
-                bool dentro = true;
-                //for (size_t d = 0; d < p.coords.size(); ++d) {
-                for (size_t d = 0; d < 2; ++d) {
-                    //cout<<p.coords[d] << " " <<coord_min[d] << " " << p.coords[d]<< " " <<coord_max[d]<<endl;
-                    if (p.coords[d] < coord_min[d] || p.coords[d] > coord_max[d]) {
-                        dentro = false;
-                        break;
-                    }
-                }
-                if (dentro)
-                    encontrados.push_back(p);
-            }
+            ++i;
         }
-
-        if (!nodo->leaf)
+    
+        // Desde aquí las claves están >= hilbert_min
+        while (i < nodo->keys.size() && nodo->keys[i].key <= hilbert_max) {
+            // Revisar hijo izquierdo
+            if (!nodo->leaf)
+                buscarRec(nodo->children[i]);
+    
+            // Revisar si el punto está dentro del rango original (por coordenadas reales)
+            const auto& p = nodo->keys[i];
+            bool dentro = true;
+            for (size_t d = 0; d < 2; ++d) {
+                if (p.coords[d] < coord_min[d] || p.coords[d] > coord_max[d]) {
+                    dentro = false;
+                    break;
+                }
+            }
+            if (dentro)
+                encontrados.push_back(p);
+    
+            ++i;
+        }
+    
+        // Después de hilbert_max, no vale la pena seguir
+        if (!nodo->leaf && i < nodo->children.size())
             buscarRec(nodo->children[i]);
     };
-
     buscarRec(arbol.root);
-
     cout << "Se encontraron " << encontrados.size() << " puntos dentro del rango:\n";
     // for (const auto& p : encontrados) {
     //     cout << "Key: " << p.key << " | Coords: ";

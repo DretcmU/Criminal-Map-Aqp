@@ -325,7 +325,36 @@ double distancia(const Dato& a, const Dato& b) {
 }
 
 // ===================
-// DBSCAN EN UN GRUPO
+// EXPANSIÓN DE CLUSTER
+// ===================
+void expandirCluster(Dato* punto, vector<Dato*>& vecinos, int cluster_id, double eps, int minPts, vector<Dato*>& grupo) {
+    punto->cluster_id = cluster_id;
+    vector<Dato*> cola = vecinos;
+
+    while (!cola.empty()) {
+        Dato* actual = cola.back();
+        cola.pop_back();
+
+        if (actual->cluster_id == -1 || actual->cluster_id == -2) {
+            actual->cluster_id = cluster_id;
+
+            // Buscar vecinos de este punto
+            vector<Dato*> vecinos2;
+            for (Dato* otro : grupo) {
+                if (distancia(*actual, *otro) <= eps) {
+                    vecinos2.push_back(otro);
+                }
+            }
+
+            if (vecinos2.size() >= minPts) {
+                cola.insert(cola.end(), vecinos2.begin(), vecinos2.end());
+            }
+        }
+    }
+}
+
+// ===================
+// DBSCAN EN UN GRUPO (MÓDULO PRINCIPAL)
 // ===================
 void dbscan(vector<Dato*>& grupo, double eps, int minPts, int& nextClusterId) {
     for (Dato* punto : grupo) {
@@ -343,32 +372,8 @@ void dbscan(vector<Dato*>& grupo, double eps, int minPts, int& nextClusterId) {
             continue;
         }
 
-        punto->cluster_id = nextClusterId;
-        vector<Dato*> cola = vecinos;
-
-        while (!cola.empty()) {
-            Dato* actual = cola.back();
-            cola.pop_back();
-
-            if (actual->cluster_id == -1 || actual->cluster_id == -2) {
-                actual->cluster_id = nextClusterId;
-            } else {
-                continue;
-            }
-            actual->cluster_id = nextClusterId;
-
-            vector<Dato*> vecinos2;
-            for (Dato* otro : grupo) {
-                if (distancia(*actual, *otro) <= eps) {
-                    vecinos2.push_back(otro);
-                }
-            }
-
-            if (vecinos2.size() >= minPts) {
-                cola.insert(cola.end(), vecinos2.begin(), vecinos2.end());
-            }
-        }
-
+        // Expansión del clúster
+        expandirCluster(punto, vecinos, nextClusterId, eps, minPts, grupo);
         nextClusterId++;
     }
 }
@@ -460,11 +465,12 @@ int main() {
     }
 
     // Aplicar DBSCAN a cada grupo
-    int nextClusterId = 0;
+    int nextClusterId = 0, minPts=7;
+    double epsilom = 0.2;
     for (auto it = gruposHilbert.begin(); it != gruposHilbert.end(); ++it) {
         uint64_t grupo_id = it->first;
         vector<Dato*>& grupo = it->second;
-        dbscan(grupo, 1.2, 5, nextClusterId);
+        dbscan(grupo, epsilom, minPts, nextClusterId);
     }
 
     // Mostrar resumen

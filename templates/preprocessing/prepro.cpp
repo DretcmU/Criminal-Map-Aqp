@@ -10,17 +10,92 @@
 #include <algorithm>
 #include <cstdint>
 #include <set>
+#include <chrono>
 
 using namespace std;
 
 // ===================
 // ESTRUCTURA PRINCIPAL
 // ===================
+
 struct Dato {
     vector<double> columnas;
     uint64_t indice_h = 0;
     uint64_t key;
     int cluster_id = -1; // -1 = sin asignar, -2 = ruido
+    bool visitado = false;
+};
+
+// ===================
+// DISTANCIA EUCLIDEANA
+// ===================
+double distancia(const Dato& a, const Dato& b) {
+    double suma = 0.0;
+    for (size_t i = 0; i < a.columnas.size(); ++i) {
+        double d = a.columnas[i] - b.columnas[i];
+        suma += d * d;
+    }
+    return sqrt(suma);
+}
+
+
+struct KDNode {
+    int index;
+    KDNode* left = nullptr;
+    KDNode* right = nullptr;
+    int dimension;
+
+    KDNode(int idx, int dim) : index(idx), dimension(dim) {}
+};
+
+class KDTree {
+public:
+    KDTree(const vector<Dato*>& datos) : datos(datos), dimensiones(datos[0]->columnas.size()) {
+        indices.resize(datos.size());
+        for (int i = 0; i < indices.size(); ++i) indices[i] = i;
+        root = build(0, datos.size(), 0);
+    }
+
+    vector<int> pointsInSphere(const Dato& q, double eps) const {
+        vector<int> result;
+        search(root, q, eps, result);
+        return result;
+    }
+
+private:
+    const vector<Dato*>& datos;
+    vector<int> indices;
+    KDNode* root;
+    int dimensiones;
+
+    KDNode* build(int l, int r, int depth) {
+        if (l >= r) return nullptr;
+        int dim = depth % dimensiones;
+        int m = (l + r) / 2;
+
+        auto comp = [&](int a, int b) {
+            return datos[a]->columnas[dim] < datos[b]->columnas[dim];
+        };
+
+        nth_element(indices.begin() + l, indices.begin() + m, indices.begin() + r, comp);
+
+        KDNode* node = new KDNode(indices[m], dim);
+        node->left = build(l, m, depth + 1);
+        node->right = build(m + 1, r, depth + 1);
+        return node;
+    }
+
+    void search(KDNode* node, const Dato& q, double eps, vector<int>& result) const {
+        if (!node) return;
+        Dato* p = datos[node->index];
+        if (distancia(q, *p) <= eps)
+            result.push_back(node->index);
+
+        double delta = q.columnas[node->dimension] - p->columnas[node->dimension];
+
+        if (delta <= eps) search(node->left, q, eps, result);
+        if (delta >= -eps) search(node->right, q, eps, result);
+    }
 };
 
 // ===================
@@ -53,112 +128,6 @@ uint64_t hilbertIndexND(const vector<uint32_t>& coords, int bits) {
 
     return index;
 }
-
-// ===================
-// LECTURA Y HILBERT
-// ===================
-// vector<Dato> leerColumnasDeCSVConHilbert(
-//     const string& filename,
-//     const vector<string>& columnasDeseadas,
-//     int bitsHilbert = 16
-// ) {
-//     vector<Dato> datos;
-//     ifstream archivo(filename);
-//     string linea;
-
-//     if (!archivo.is_open()) {
-//         cerr << "No se pudo abrir el archivo: " << filename << endl;
-//         return datos;
-//     }
-
-//     // Leer encabezado
-//     getline(archivo, linea);
-//     istringstream ssEncabezado(linea);
-//     string columna;
-//     unordered_map<string, int> indiceColumna;
-
-//     int index = 0;
-//     while (getline(ssEncabezado, columna, ',')) {
-//         indiceColumna[columna] = index++;
-//     }
-
-//     vector<int> indicesSeleccionados;
-//     for (const auto& nombre : columnasDeseadas) {
-//         if (indiceColumna.find(nombre) != indiceColumna.end()) {
-//             indicesSeleccionados.push_back(indiceColumna[nombre]);
-//         } else {
-//             cerr << "Columna no encontrada: " << nombre << endl;
-//             return datos;
-//         }
-//     }
-
-//     vector<vector<double>> columnasRaw(columnasDeseadas.size());
-//     vector<vector<string>> filasCSV;
-
-//     while (getline(archivo, linea)) {
-//         istringstream ss(linea);
-//         string valor;
-//         vector<string> filaCompleta;
-
-//         while (getline(ss, valor, ',')) {
-//             filaCompleta.push_back(valor);
-//         }
-
-//         if (filaCompleta.size() > *max_element(indicesSeleccionados.begin(), indicesSeleccionados.end())) {
-//             for (size_t i = 0; i < indicesSeleccionados.size(); ++i) {
-//                 int idx = indicesSeleccionados[i];
-//                 columnasRaw[i].push_back(stod(filaCompleta[idx]));
-//             }
-//             filasCSV.push_back(filaCompleta);
-//         }
-//     }
-
-//     vector<double> minVals, maxVals;
-//     for (const auto& col : columnasRaw) {
-//         double minV = *min_element(col.begin(), col.end());
-//         double maxV = *max_element(col.begin(), col.end());
-//         minVals.push_back(minV);
-//         maxVals.push_back(maxV);
-//     }
-
-//     int filanumN=0;
-//     for (const auto& fila : filasCSV) {
-//         if (stod(fila[1])==0.0 || stod(fila[2])==0.0) continue;
-//         Dato dato;
-//         vector<uint32_t> coords;
-//         vector<uint32_t> pos;
-//         int con = 0;
-
-//         for (size_t i = 0; i < indicesSeleccionados.size(); ++i) {
-//             int idx = indicesSeleccionados[i];
-//             double val = stod(fila[idx]);
-
-//             uint32_t norm = static_cast<uint32_t>(
-//                 ((val - minVals[i]) / (maxVals[i] - minVals[i])) * ((1 << bitsHilbert) - 1)
-//             );
-//             //coords.push_back(norm);
-//             if(con<2){
-//                 cout<<minVals[0]<<" "<<maxVals[0]<<" "<<minVals[1]<<" "<<maxVals[1]<<endl;
-//                 dato.columnas.push_back(val);
-//                 // if (stod(fila[1])==0.0 || stod(fila[2])==0.0){
-//                 //     cout<<"A"<<filanumN<<endl;
-//                 //     cin>>con;
-//                 // }
-//                 pos.push_back(norm);
-//                 con++;
-//             }
-//             else{
-//                 coords.push_back(norm);
-//             }
-//             filanumN++;
-//         }
-//         dato.key = hilbertIndexND(pos, bitsHilbert);
-//         dato.indice_h = hilbertIndexND(coords, bitsHilbert);
-//         datos.push_back(dato);
-//     }
-
-//     return datos;
-// }
 
 void guardarMinMax(const string& filename, const vector<double>& minVals, const vector<double>& maxVals) {
     ofstream archivo(filename);
@@ -272,7 +241,7 @@ vector<Dato> leerColumnasDeCSVConHilbert(
 
     cout<<"Min: " <<minVals[0]<<" "<<minVals[1]<<endl;
     cout<<"Max: " <<maxVals[0]<<" "<<maxVals[1]<<endl;
-    cout<<"mira: ";cin>>xdatoxd;
+    //cout<<"mira: ";cin>>xdatoxd;
 
     guardarMinMax("minmax.txt", minVals, maxVals);
 
@@ -312,69 +281,52 @@ vector<Dato> leerColumnasDeCSVConHilbert(
     return datos;
 }
 
-// ===================
-// DISTANCIA EUCLIDEANA
-// ===================
-double distancia(const Dato& a, const Dato& b) {
-    double suma = 0;
-    for (size_t i = 0; i < a.columnas.size(); ++i) {
-        double diff = a.columnas[i] - b.columnas[i];
-        suma += diff * diff;
-    }
-    return sqrt(suma);
-}
+// ============================
+// EXPANSIÓN DEL CLUSTER (KD)
+// ============================
+void expandirClusterKD(vector<Dato*>& grupo, KDTree& tree, int index,
+                       vector<int>& vecinos, int cluster_id, double eps, int minPts) {
+    grupo[index]->cluster_id = cluster_id;
 
-// ===================
-// EXPANSIÓN DE CLUSTER
-// ===================
-void expandirCluster(Dato* punto, vector<Dato*>& vecinos, int cluster_id, double eps, int minPts, vector<Dato*>& grupo) {
-    punto->cluster_id = cluster_id;
-    vector<Dato*> cola = vecinos;
-
-    while (!cola.empty()) {
-        Dato* actual = cola.back();
-        cola.pop_back();
+    size_t i = 0;
+    while (i < vecinos.size()) {
+        int idx = vecinos[i];
+        Dato* actual = grupo[idx];
+        if (!actual->visitado) {
+            actual->visitado = true;
+            auto nuevos_vecinos = tree.pointsInSphere(*actual, eps);
+            if (nuevos_vecinos.size() >= minPts) {
+                vecinos.insert(vecinos.end(), nuevos_vecinos.begin(), nuevos_vecinos.end());
+            }
+        }
 
         if (actual->cluster_id == -1 || actual->cluster_id == -2) {
             actual->cluster_id = cluster_id;
-
-            // Buscar vecinos de este punto
-            vector<Dato*> vecinos2;
-            for (Dato* otro : grupo) {
-                if (distancia(*actual, *otro) <= eps) {
-                    vecinos2.push_back(otro);
-                }
-            }
-
-            if (vecinos2.size() >= minPts) {
-                cola.insert(cola.end(), vecinos2.begin(), vecinos2.end());
-            }
         }
+
+        ++i;
     }
 }
 
-// ===================
-// DBSCAN EN UN GRUPO (MÓDULO PRINCIPAL)
-// ===================
-void dbscan(vector<Dato*>& grupo, double eps, int minPts, int& nextClusterId) {
-    for (Dato* punto : grupo) {
-        if (punto->cluster_id != -1) continue;
+// ============================
+// DBSCAN CON KD-TREE
+// ============================
+void dbscanKD(vector<Dato*>& grupo, double eps, int minPts, int& nextClusterId) {
+    KDTree tree(grupo);
 
-        vector<Dato*> vecinos;
-        for (Dato* otro : grupo) {
-            if (distancia(*punto, *otro) <= eps) {
-                vecinos.push_back(otro);
-            }
-        }
+    for (int i = 0; i < grupo.size(); ++i) {
+        Dato* punto = grupo[i];
+        if (punto->visitado) continue;
+
+        punto->visitado = true;
+        auto vecinos = tree.pointsInSphere(*punto, eps);
 
         if (vecinos.size() < minPts) {
             punto->cluster_id = -2; // ruido
-            continue;
+        } else {
+            expandirClusterKD(grupo, tree, i, vecinos, nextClusterId, eps, minPts);
+            nextClusterId++;
         }
-
-        // Expansión del clúster
-        expandirCluster(punto, vecinos, nextClusterId, eps, minPts, grupo);
-        nextClusterId++;
     }
 }
 
@@ -386,22 +338,34 @@ void guardarEnBinario(const vector<Dato>& datos, const vector<string>& columnas,
         return;
     }
 
-    size_t n_columnas = 2;//columnas.size();
-    size_t n_datos = datos.size();
-    outBin.write(reinterpret_cast<const char*>(&n_datos), sizeof(size_t));
-    outBin.write(reinterpret_cast<const char*>(&n_columnas), sizeof(size_t));
+    // También abrimos un archivo .txt adicional
+    string nombreTxt = nombreArchivo + ".txt";  // Ejemplo: "BinDatos.bin.txt"
+    ofstream outTxt(nombreTxt);
+    if (!outTxt.is_open()) {
+        cerr << "No se pudo crear el archivo de texto: " << nombreTxt << endl;
+        return;
+    }
 
+    // Encabezado binario
+    uint64_t n_columnas = 2;  // Solo lat y lon
+    uint64_t n_datos = datos.size();
+    outBin.write(reinterpret_cast<const char*>(&n_datos), sizeof(uint64_t));
+    outBin.write(reinterpret_cast<const char*>(&n_columnas), sizeof(uint64_t));
+
+    // Datos
     for (const Dato& d : datos) {
-        // if(d.columnas[0]==0.0){
-        //     cout<<1000000<<endl;
-        // }
         outBin.write(reinterpret_cast<const char*>(d.columnas.data()), sizeof(double) * n_columnas);
         outBin.write(reinterpret_cast<const char*>(&d.key), sizeof(uint64_t));
         outBin.write(reinterpret_cast<const char*>(&d.cluster_id), sizeof(int));
+
+        // También escribir en .txt
+        outTxt << d.key << " " << d.cluster_id << "\n";
     }
 
     outBin.close();
+    outTxt.close();
     cout << "Archivo binario guardado como '" << nombreArchivo << "'\n";
+    cout << "Archivo de texto guardado como '" << nombreTxt << "'\n";
 }
 
 vector<Dato> leerDesdeBinario(const string& nombreArchivo) {
@@ -432,6 +396,52 @@ vector<Dato> leerDesdeBinario(const string& nombreArchivo) {
     cout << "Archivo binario leído correctamente: " << nombreArchivo << "\n";
     return datos;
 }
+
+int estimarMinPts(size_t cantidadDatos) {
+    return std::max(4, static_cast<int>(log2(cantidadDatos))); // al menos 4
+}
+
+double estimarEpsilon1D(const vector<Dato*>& grupo, int k) {
+    if (grupo.size() < 2) return 1.0;
+
+    // Primero, normalizamos los valores de indice_h
+    uint64_t min_h = grupo[0]->indice_h;
+    uint64_t max_h = grupo[0]->indice_h;
+
+    for (Dato* d : grupo) {
+        min_h = std::min(min_h, d->indice_h);
+        max_h = std::max(max_h, d->indice_h);
+    }
+
+    double rango = static_cast<double>(max_h - min_h);
+    if (rango == 0.0) return 0.01;  // todos iguales, no hay separación
+
+    vector<double> distancias;
+    k = std::min(k, static_cast<int>(grupo.size() - 1));
+
+    for (Dato* p : grupo) {
+        vector<double> vecinos;
+        double p_norm = (p->indice_h - min_h) / rango;
+        for (Dato* q : grupo) {
+            if (p == q) continue;
+            double q_norm = (q->indice_h - min_h) / rango;
+            vecinos.push_back(abs(p_norm - q_norm));
+        }
+
+        std::sort(vecinos.begin(), vecinos.end());
+
+        if (vecinos.size() >= k)
+            distancias.push_back(vecinos[k - 1]);
+        else if (!vecinos.empty())
+            distancias.push_back(vecinos.back());
+    }
+
+    if (distancias.empty()) return 0.01;
+
+    std::sort(distancias.begin(), distancias.end());
+    return distancias[distancias.size() * 0.9]; // valor en el percentil 90
+}
+
 
 int main() {
     string archivoCSV = "processed_data_subset_500k.csv";
@@ -465,13 +475,26 @@ int main() {
     }
 
     // Aplicar DBSCAN a cada grupo
-    int nextClusterId = 0, minPts=7;
-    double epsilom = 0.2;
+    int nextClusterId = 0, minPts=4;
+    double eps = 0.2;
+    auto inicio = std::chrono::high_resolution_clock::now();
+
+    // APLICAR DBSCAN A CADA GRUPO
     for (auto it = gruposHilbert.begin(); it != gruposHilbert.end(); ++it) {
         uint64_t grupo_id = it->first;
         vector<Dato*>& grupo = it->second;
-        dbscan(grupo, epsilom, minPts, nextClusterId);
+        
+        //cout<<"A\n";
+        //int minPts = estimarMinPts(grupo.size());
+        //cout<<"B\n";
+        //double eps = estimarEpsilon1D(grupo, minPts);        
+        //cout << "Grupo " << grupo_id << " -> size: " << grupo.size()<< " | minPts: " << minPts << " | eps: " << eps << endl;
+        dbscanKD(grupo, eps, minPts, nextClusterId);
     }
+
+    // FIN DEL CRONÓMETRO
+    auto fin = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duracion = fin - inicio;
 
     // Mostrar resumen
     map<int, int> conteoClusters;
@@ -495,7 +518,12 @@ int main() {
     //     cout << "Fila " << i << " cluster = " << datos[i].cluster_id << endl;
     // }
 
+    sort(datos.begin(), datos.end(), [](const Dato& a, const Dato& b) {
+        return a.key < b.key;
+    });
     guardarEnBinario(datos,columnas, "BinDatos.bin");
     cout<<"size: "<<datos.size()<<endl;
+    std::cout << "Tiempo total de DBSCAN + KDTree: " << duracion.count() << " segundos" << std::endl;
+    
     return 0;
 }

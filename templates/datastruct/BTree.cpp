@@ -229,6 +229,7 @@ std::vector<Point> buscarRangoHilbert(BTree& arbol,
     // };
 
     // buscarRec(arbol.root);
+    
     function<void(BTreeNode*)> buscarRec = [&](BTreeNode* nodo) {
         if (!nodo) return;
     
@@ -267,6 +268,7 @@ std::vector<Point> buscarRangoHilbert(BTree& arbol,
             buscarRec(nodo->children[i]);
     };
     buscarRec(arbol.root);
+
     cout << "Se encontraron " << encontrados.size() << " puntos dentro del rango:\n";
     // for (const auto& p : encontrados) {
     //     cout << "Key: " << p.key << " | Coords: ";

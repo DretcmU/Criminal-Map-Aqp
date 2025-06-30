@@ -80,33 +80,61 @@
       puntosLayer.clearLayers();
     });
 
-    function getColorFromValue(value, maxValue = 843) {
+    function getColorFromValue(value, maxValue = 910) {
       const hue = (value / maxValue) * 360;  // Hue de 0 a 360
       return `hsl(${hue}, 100%, 50%)`;       // Saturación y brillo constantes
     }
 
+    let puntosActuales = []; // se guarda tras fetch
+
     function buscarCriminalidad() {
       if (!bounds) return alert("Dibuja un área primero");
+
       const data = {
         minLat: bounds.getSouth(),
         minLon: bounds.getWest(),
         maxLat: bounds.getNorth(),
         maxLon: bounds.getEast()
       };
+
       fetch("http://localhost:8080/consultar", {
         method: "POST",
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
-      }).then(res => res.json()).then(puntos => {
-        puntosLayer.clearLayers();
-        puntos.forEach(p => {
-          const color = getColorFromValue(p.color); // p.color de 0 a 5000
-          L.circleMarker([p.lat, p.lon], {
-            radius: 4,
-            color: color
-          }).addTo(puntosLayer);
-        });
-      }).catch(err => alert("Error en la consulta: " + err));
+      }).then(res => res.json())
+        .then(puntos => {
+          puntosActuales = puntos; // Guardamos para uso en evento click
+          puntosLayer.clearLayers();
+
+          puntos.forEach((p, i) => {
+            const marker = L.circleMarker([p.lat, p.lon], {
+              radius: 4,
+              color: getColorFromValue(p.color)
+            }).addTo(puntosLayer);
+
+            marker.on("click", () => {
+              mostrarRanking(p.key);
+            });
+          });
+        })
+        .catch(err => alert("Error en la consulta: " + err));
+    }
+
+    function mostrarRanking(keyClickeado) {
+      // Ordenamos por diferencia absoluta de key al clickeado
+      const ordenados = [...puntosActuales].sort((a, b) =>
+        Math.abs(a.key - keyClickeado) - Math.abs(b.key - keyClickeado)
+      );
+
+      // Buscar la posición del punto clickeado
+      const posicion = ordenados.findIndex(p => p.key === keyClickeado);
+      if (posicion === -1) {
+        alert("No se encontró el punto en el ranking.");
+        return;
+      }
+
+      const punto = ordenados[posicion];
+      alert(`📍 Este punto tiene ranking #${posicion + 1}\nLat: ${punto.lat}\nLon: ${punto.lon}\nCluster: ${punto.color}`);
     }
   </script>
 </body>
